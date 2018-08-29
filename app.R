@@ -32,11 +32,7 @@ sidebarLayout(
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
                          ".csv")),
-    
-    # Input: Checkbox if file has header ----
     checkboxInput("expdataheader", "Header", TRUE),
-    
-    # Input: Select separator ----
     radioButtons("expdatasep", "Separator",
                  choices = c(Comma = ",",
                              Semicolon = ";",
@@ -52,11 +48,7 @@ sidebarLayout(
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
                          ".csv")),
-    
-    # Input: Checkbox if file has header ----
     checkboxInput("clusdataheader", "Header", FALSE),
-    
-    # Input: Select separator ----
     radioButtons("clusdatasep", "Separator",
                  choices = c(Comma = ",",
                              Semicolon = ";",
@@ -72,13 +64,12 @@ sidebarLayout(
               accept = c("text/csv",
                          "text/comma-separated-values,text/plain",
                          ".csv")),
-    
-    # Input: Checkbox if file has header ----
     checkboxInput("refheader", "Header", FALSE),
     
     # Horizontal line ----
     tags$hr(),
     
+    # Input: Select genes based on data ----
     htmlOutput("gene_selector")
   ),
   
@@ -118,15 +109,7 @@ server <- function(input, output) {
     req(input$reflist)
 
     reflist <- read.table(input$reflist$datapath, header = input$refheader)
-    if (!is.null(input$expdata) & !is.null(input$clusdata)){
-    cts <- read.table(input$expdata$datapath,
-                         header = input$expdataheader,
-                         sep = input$expdatasep)
-    clus.labelsdf <- read.table(input$clusdata$datapath,
-                      header = input$clusdataheader,
-                      sep = input$clusdatasep)
-    col.pal <- cole <- colb <- bigPalette
-    } else {
+    if (is.null(input$expdata) | is.null(input$clusdata)){
       tmp <- tempfile()
       download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99251&format=file&file=GSE99251%5FoeHBC%5FWTregen%5FcountsMatrix%2Etxt%2Egz",tmp)
       cts <- read.table(gzfile(tmp))
@@ -135,9 +118,23 @@ server <- function(input, output) {
       col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3", "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F", "#FF7F00")
       cole <- c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#084594", "#FEE5D9", "#FCBBA1", "#FC9272", "#FB6A4A", "#DE2D26", "#A50F15")
       colb <- bigPalette
+      clus.labels <- clus.labelsdf[,2]
+      names(clus.labels) <- clus.labelsdf[,1]
+      cluster_ord <- c(9,6,2,5,7,11,12,3,8,4,1)
+      clus.labels <- clus.labels[order(match(clus.labels,cluster_ord))]
+    } else {
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      clus.labelsdf <- read.table(input$clusdata$datapath,
+                                  header = input$clusdataheader,
+                                  sep = input$clusdatasep)
+      col.pal <- cole <- colb <- bigPalette
+      clus.labels <- clus.labelsdf[,2]
+      names(clus.labels) <- clus.labelsdf[,1]
+      clus.labels <- sort(clus.labels)
     }
-    clus.labels <- clus.labelsdf[,2]
-    names(clus.labels) <- clus.labelsdf[,1]
+    
     
     
     breakv <- c(min(cts),
@@ -147,7 +144,7 @@ server <- function(input, output) {
 
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
 
-    clus.labels <- sort(clus.labels)
+    
     ph <- plotHeatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
     return(ph)
   })
