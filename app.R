@@ -76,7 +76,8 @@ sidebarLayout(
     tags$hr(),
     
     # Input: Select genes based on data ----
-    htmlOutput("gene_selector")
+    htmlOutput("gene_selector"),
+    htmlOutput("multigene_selector")
   ),
   
   # Main panel for displaying outputs ----
@@ -101,8 +102,8 @@ server <- function(input, output) {
   })
   
   output$heatmap <- renderPlot({
-    req(input$reflist)
-    reflist <- read.table(input$reflist$datapath, header = input$refheader)
+    #req(input$reflist)
+    #reflist <- read.table(input$reflist$datapath, header = input$refheader)
     if (is.null(input$expdata) | is.null(input$clusdata)){
       cts <- regencts
       clus.labels <- regenclus.labelsdf
@@ -133,7 +134,7 @@ server <- function(input, output) {
 
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
     
-    ph <- plotHeatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
+    ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
     return(ph)
   })
   
@@ -150,6 +151,22 @@ server <- function(input, output) {
                 label = "Gene to Plot", #label displayed in ui
                 choices = unique(data_available))
   
+  })
+  
+  output$multigene_selector = renderUI({
+    if (is.null(input$expdata)){
+      data_available = read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_genes.txt")$V1
+    }else{
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      data_available = rownames(cts)
+    }
+    selectInput(inputId = "multigene", #name of input
+                label = "Genes to Plot", #label displayed in ui
+                choices = unique(data_available),
+                multiple = TRUE)
+    
   })
   
   # output$lineplot <- renderPlot({
