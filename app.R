@@ -84,7 +84,6 @@ sidebarLayout(
   mainPanel(
     
     # Output: Data file ----
-    #tableOutput("contents"),
     plotOutput("heatmap")#,
     #plotOutput("lineplot")
   )
@@ -94,13 +93,6 @@ sidebarLayout(
 
 # Define server logic to read selected file ----
 server <- function(input, output) {
-  
-  output$contents <- renderTable({
-    req(input$reflist)
-    reflist <- read.table(input$reflist$datapath, header = input$refheader)
-    return(head(reflist))
-  })
-  
   output$heatmap <- renderPlot({
     #req(input$reflist)
     #reflist <- read.table(input$reflist$datapath, header = input$refheader)
@@ -149,7 +141,7 @@ server <- function(input, output) {
       }
     selectInput(inputId = "gene", #name of input
                 label = "Gene to Plot", #label displayed in ui
-                choices = unique(data_available))
+                choices = sort(unique(data_available)))
   
   })
   
@@ -164,7 +156,7 @@ server <- function(input, output) {
     }
     selectInput(inputId = "multigene", #name of input
                 label = "Genes to Plot", #label displayed in ui
-                choices = unique(data_available),
+                choices = sort(unique(data_available)),
                 multiple = TRUE)
     
   })
