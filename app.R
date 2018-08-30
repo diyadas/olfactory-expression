@@ -16,6 +16,12 @@ bigPalette <- c("#E31A1C", "#1F78B4", "#33A02C", "#FF7F00", "#6A3D9A", "#B15928"
                 "goldenrod", "#85848f", "lightpink3", "olivedrab", "cadetblue3"
 ) #clusterExperiment's bigPalette, in case clusterExperiment doesn't work
 
+tmp <- tempfile()
+download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99251&format=file&file=GSE99251%5FoeHBC%5FWTregen%5FcountsMatrix%2Etxt%2Egz",tmp)
+regencts <- read.table(gzfile(tmp))
+unlink(tmp)
+regenclus.labelsdf <- read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_clusterLabels.txt")
+
 
 # Define UI for application
 ui <- fluidPage(
@@ -77,8 +83,7 @@ sidebarLayout(
   mainPanel(
     
     # Output: Data file ----
-    tableOutput("contents"),
-    tableOutput("clus"),
+    #tableOutput("contents"),
     plotOutput("heatmap")#,
     #plotOutput("lineplot")
   )
@@ -95,27 +100,15 @@ server <- function(input, output) {
     return(head(reflist))
   })
   
-  output$clus <- renderTable({
-    req(input$clusdata)
-    clus.labelsdf <- read.table(input$clusdata$datapath,
-                                header = input$clusdataheader,
-                                sep = input$clusdatasep)
-    clus.labels <- clus.labelsdf[,2]
-    names(clus.labels) <- clus.labelsdf[,1]
-    return(head(clus.labelsdf))
-  })
-
   output$heatmap <- renderPlot({
     req(input$reflist)
-
     reflist <- read.table(input$reflist$datapath, header = input$refheader)
     if (is.null(input$expdata) | is.null(input$clusdata)){
-      tmp <- tempfile()
-      download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99251&format=file&file=GSE99251%5FoeHBC%5FWTregen%5FcountsMatrix%2Etxt%2Egz",tmp)
-      cts <- read.table(gzfile(tmp))
-      unlink(tmp)
-      clus.labelsdf <- read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_clusterLabels.txt")
-      col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3", "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F", "#FF7F00")
+      cts <- regencts
+      clus.labels <- regenclus.labelsdf
+      col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3",
+                   "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F",
+                   "#FF7F00")
       cole <- c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#084594", "#FEE5D9", "#FCBBA1", "#FC9272", "#FB6A4A", "#DE2D26", "#A50F15")
       colb <- bigPalette
       clus.labels <- clus.labelsdf[,2]
@@ -134,30 +127,29 @@ server <- function(input, output) {
       names(clus.labels) <- clus.labelsdf[,1]
       clus.labels <- sort(clus.labels)
     }
-    
-    
-    
     breakv <- c(min(cts),
                 seq(0, quantile(cts[cts > 0], .99, na.rm = TRUE), length = 50),
                 max(cts))
 
-
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
-
     
     ph <- plotHeatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
     return(ph)
   })
   
   output$gene_selector = renderUI({
-    req(input$expdata)
+    if (is.null(input$expdata)){
+    data_available = read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_genes.txt")$V1
+      }else{
     cts <- read.table(input$expdata$datapath,
                       header = input$expdataheader,
                       sep = input$expdatasep)
     data_available = rownames(cts)
+      }
     selectInput(inputId = "gene", #name of input
                 label = "Gene to Plot", #label displayed in ui
                 choices = unique(data_available))
+  
   })
   
   # output$lineplot <- renderPlot({
