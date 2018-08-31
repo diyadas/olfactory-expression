@@ -1,4 +1,12 @@
-packagesNeeded = c("shiny", "NMF")
+# Title: Shiny App for Olfactory Expression Data
+# Author: Diya Das
+# Date: 2018-08-31
+# Last revised: Fri Aug 31 12:21:31 2018
+
+# This script needs XCode Developer Tools on MacOS: 
+### To install them, open Terminal and run "xcode-select --install"
+
+packagesNeeded = c("shiny", "NMF", "later")
 options(repos = structure(c(CRAN="http://cran.cnr.berkeley.edu/")))
 
 new.pkg <- packagesNeeded[!(packagesNeeded %in% installed.packages()[, "Package"])]
@@ -27,7 +35,6 @@ colorscale <- c("#000000", "#00003B", "#000077", "#00009E", "#0000C2", "#0826CD"
 
 regencts <- read.table("oeHBCregenWT_countsMatrix.txt")
 regenclus.labelsdf <- read.table("oeHBCregenWT_clusterLabels.txt")
-
 
 # Define UI for application
 ui <- fluidPage(
@@ -83,7 +90,6 @@ ui <- fluidPage(
     
     # Main panel for displaying outputs ----
     mainPanel(
-      
       # Output: Data file ----
       plotOutput("heatmap")#,
       #plotOutput("lineplot")
@@ -93,10 +99,40 @@ ui <- fluidPage(
 
 # Define server logic to read selected file ----
 server <- function(input, output) {
+  output$multigene_selector = renderUI({
+    if (is.null(input$expdata)){
+      data_available = rownames(regencts)
+    } else {
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      data_available = rownames(cts)
+    }
+    selectInput(inputId = "multigene", #name of input
+                label = "Genes to Plot in Heatmap", #label displayed in ui
+                choices = sort(unique(data_available)),
+                multiple = TRUE)
+    
+  })
+  output$gene_selector = renderUI({
+    if (is.null(input$expdata)){
+      data_available = rownames(regencts)
+    }else{
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      data_available = rownames(cts)
+    }
+    selectInput(inputId = "gene", #name of input
+                label = "Single Gene to Plot // Doesn't do anything at the moment", #label displayed in ui
+                choices = sort(unique(data_available)))
+    
+  })
   output$heatmap <- renderPlot({
+    validate(need(!is.null(input$multigene) | !is.null(input$reflist), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\nWill plot olfactory regeneration data when a gene list is provided, unless expression matrix and cluster labels files are uploaded."))
     if (is.null(input$expdata) | is.null(input$clusdata)){
       cts <- regencts
-      clus.labels <- regenclus.labelsdf
+      clus.labelsdf <- regenclus.labelsdf
       col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3",
                    "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F",
                    "#FF7F00")
@@ -121,48 +157,17 @@ server <- function(input, output) {
     breakv <- c(min(cts),
                 seq(0, quantile(cts[cts > 0], .99, na.rm = TRUE), length = 50),
                 max(cts))
-    
+
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
     
     #ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
     if (is.null(input$reflist)){
-      ph <- aheatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
+      reflist <- input$multigene
     }else{
       reflist <- read.table(input$reflist$datapath, header = input$refheader)
-      ph <- aheatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)  
     }
+    ph <- aheatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
     return(ph)
-  })
-  
-  output$gene_selector = renderUI({
-    if (is.null(input$expdata)){
-      data_available = rownames(regencts)
-    }else{
-      cts <- read.table(input$expdata$datapath,
-                        header = input$expdataheader,
-                        sep = input$expdatasep)
-      data_available = rownames(cts)
-    }
-    selectInput(inputId = "gene", #name of input
-                label = "Single Gene to Plot // Doesn't do anything at the moment", #label displayed in ui
-                choices = sort(unique(data_available)))
-    
-  })
-  
-  output$multigene_selector = renderUI({
-    if (is.null(input$expdata)){
-      data_available = rownames(regencts)
-    }else{
-      cts <- read.table(input$expdata$datapath,
-                        header = input$expdataheader,
-                        sep = input$expdatasep)
-      data_available = rownames(cts)
-    }
-    selectInput(inputId = "multigene", #name of input
-                label = "Genes to Plot in Heatmap", #label displayed in ui
-                choices = sort(unique(data_available)),
-                multiple = TRUE)
-    
   })
   
   # output$lineplot <- renderPlot({
