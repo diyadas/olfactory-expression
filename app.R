@@ -129,7 +129,17 @@ server <- function(input, output) {
     
   })
   output$heatmap <- renderPlot({
-    validate(need(!is.null(input$multigene) | !is.null(input$reflist), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\nWill plot olfactory regeneration data when a gene list is provided, unless expression matrix and cluster labels files are uploaded."))
+    get_reflist <- reactive({
+      if (!is.null(input$multigene)){
+        return(input$multigene)
+      } else if (!is.null(input$reflist$datapath)) {
+        return(read.table(input$reflist$datapath, header = input$refheader))
+      } else{
+        return(NA)
+      }
+    })
+    
+    validate(need(!is.na(get_reflist()), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\nWill plot olfactory regeneration data when a gene list is provided, unless expression matrix and cluster labels files are uploaded."))
     if (is.null(input$expdata) | is.null(input$clusdata)){
       cts <- regencts
       clus.labelsdf <- regenclus.labelsdf
@@ -161,12 +171,9 @@ server <- function(input, output) {
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
     
     #ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
-    if (is.null(input$reflist)){
-      reflist <- input$multigene
-    }else{
-      reflist <- read.table(input$reflist$datapath, header = input$refheader)
-    }
-    ph <- aheatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
+    
+    
+    ph <- aheatmap(cts[intersect(as.character(unlist(get_reflist())), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
     return(ph)
   })
   
