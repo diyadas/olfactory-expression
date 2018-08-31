@@ -2,7 +2,7 @@ options(repos = BiocManager::repositories())
 #setOption("repos")
 
 library(shiny)
-library(clusterExperiment)
+library(NMF)
 options(shiny.maxRequestSize=1024^3) 
 bigPalette <- c("#E31A1C", "#1F78B4", "#33A02C", "#FF7F00", "#6A3D9A", "#B15928", 
                 "#A6CEE3", "#bd18ea", "cyan", "#B2DF8A", "#FB9A99", "deeppink4", 
@@ -15,6 +15,9 @@ bigPalette <- c("#E31A1C", "#1F78B4", "#33A02C", "#FF7F00", "#6A3D9A", "#B15928"
                 "#FDCDAC", "gold3", "#F4CAE4", "#E6F5C9", "#FF00E6FF", "#7570B3", 
                 "goldenrod", "#85848f", "lightpink3", "olivedrab", "cadetblue3"
 ) #clusterExperiment's bigPalette, in case clusterExperiment doesn't work
+colorscale <- c("#000000", "#00003B", "#000077", "#00009E", "#0000C2", "#0826CD", 
+                "#135CCD", "#247AB5", "#39848B", "#378B5C", "#168B26", "#149306", 
+                "#5CB21E", "#A0D02E", "#CFE717", "#FFFF00") #clusterExperiment's seqPal5
 
 tmp <- tempfile()
 download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99251&format=file&file=GSE99251%5FoeHBC%5FWTregen%5FcountsMatrix%2Etxt%2Egz",tmp)
@@ -126,7 +129,8 @@ server <- function(input, output) {
 
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
     
-    ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
+    #ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
+    ph <- aheatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal) , color = colorscale)
     return(ph)
   })
   
