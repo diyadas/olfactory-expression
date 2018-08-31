@@ -1,5 +1,11 @@
-options(repos = BiocManager::repositories())
-#setOption("repos")
+packagesNeeded = c("shiny", "NMF")
+options(repos = structure(c(CRAN="http://cran.cnr.berkeley.edu/")))
+
+new.pkg <- packagesNeeded[!(packagesNeeded %in% installed.packages()[, "Package"])]
+if (length(new.pkg)) install.packages(new.pkg, dependencies = TRUE)
+#based on https://gist.github.com/stevenworthington/3178163
+
+if(!file.exists("oeHBCregenWT_countsMatrix.txt")) unzip("oeHBCregenWT_countsMatrix.txt.zip")
 
 library(shiny)
 library(NMF)
@@ -14,91 +20,80 @@ bigPalette <- c("#E31A1C", "#1F78B4", "#33A02C", "#FF7F00", "#6A3D9A", "#B15928"
                 "#FFD92F", "deepskyblue4", "yellow3", "#00FFB2FF", "#FDBF6F", 
                 "#FDCDAC", "gold3", "#F4CAE4", "#E6F5C9", "#FF00E6FF", "#7570B3", 
                 "goldenrod", "#85848f", "lightpink3", "olivedrab", "cadetblue3"
-) #clusterExperiment's bigPalette, in case clusterExperiment doesn't work
+) #clusterExperiment's bigPalette, avoiding loading due to time
 colorscale <- c("#000000", "#00003B", "#000077", "#00009E", "#0000C2", "#0826CD", 
                 "#135CCD", "#247AB5", "#39848B", "#378B5C", "#168B26", "#149306", 
                 "#5CB21E", "#A0D02E", "#CFE717", "#FFFF00") #clusterExperiment's seqPal5
 
-tmp <- tempfile()
-download.file("https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99251&format=file&file=GSE99251%5FoeHBC%5FWTregen%5FcountsMatrix%2Etxt%2Egz",tmp)
-regencts <- read.table(gzfile(tmp))
-unlink(tmp)
-regenclus.labelsdf <- read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_clusterLabels.txt")
+regencts <- read.table("oeHBCregenWT_countsMatrix.txt")
+regenclus.labelsdf <- read.table("oeHBCregenWT_clusterLabels.txt")
 
 
 # Define UI for application
 ui <- fluidPage(
-   
-# Application title
-titlePanel("Olfactory gene expression"),
-# Sidebar layout with input and output definitions ----
-sidebarLayout(
-  # Sidebar panel for inputs ----
-  sidebarPanel(
-    # Input: Select a file ----
-    fileInput("expdata", "Choose Expression Data File",
-              multiple = TRUE,
-              accept = c("text/csv",
-                         "text/comma-separated-values,text/plain",
-                         ".csv")),
-    checkboxInput("expdataheader", "Header", TRUE),
-    radioButtons("expdatasep", "Separator",
-                 choices = c(Comma = ",",
-                             Semicolon = ";",
-                             Tab = "\t"),
-                 selected = "\t"),
-    
-    # Horizontal line ----
-    tags$hr(),
-    
-    # Input: Select a file ----
-    fileInput("clusdata", "Choose Cluster Labels File",
-              multiple = TRUE,
-              accept = c("text/csv",
-                         "text/comma-separated-values,text/plain",
-                         ".csv")),
-    checkboxInput("clusdataheader", "Header", FALSE),
-    radioButtons("clusdatasep", "Separator",
-                 choices = c(Comma = ",",
-                             Semicolon = ";",
-                             Tab = "\t"),
-                 selected = "\t"),
-    
-    # Horizontal line ----
-    tags$hr(),
-
-    # Input: Select a file ----
-    fileInput("reflist", "Choose Reference Gene List",
-              multiple = TRUE,
-              accept = c("text/csv",
-                         "text/comma-separated-values,text/plain",
-                         ".csv")),
-    checkboxInput("refheader", "Header", FALSE),
-    
-    # Horizontal line ----
-    tags$hr(),
-    
-    # Input: Select genes based on data ----
-    htmlOutput("gene_selector"),
-    htmlOutput("multigene_selector")
-  ),
   
-  # Main panel for displaying outputs ----
-  mainPanel(
+  # Application title
+  titlePanel("Olfactory gene expression"),
+  # Sidebar layout with input and output definitions ----
+  sidebarLayout(
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+      # Input: Select expression file ----
+      fileInput("expdata", "Choose Expression Data File",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      checkboxInput("expdataheader", "Header", TRUE),
+      radioButtons("expdatasep", "Separator",
+                   choices = c(Comma = ",",
+                               Semicolon = ";",
+                               Tab = "\t"),
+                   selected = "\t"),
+      tags$hr(),
+      
+      # Input: Select a cluster labels file ----
+      fileInput("clusdata", "Choose Cluster Labels File",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      checkboxInput("clusdataheader", "Header", FALSE),
+      radioButtons("clusdatasep", "Separator",
+                   choices = c(Comma = ",",
+                               Semicolon = ";",
+                               Tab = "\t"),
+                   selected = "\t"),
+      tags$hr(),
+      
+      # Input: Select a file ----
+      fileInput("reflist", "Choose Reference Gene List",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      checkboxInput("refheader", "Header", FALSE),
+      tags$hr(),
+      
+      # Input: Select genes based on data ----
+      htmlOutput("multigene_selector"),
+      tags$hr(),
+      htmlOutput("gene_selector")
+    ),
     
-    # Output: Data file ----
-    plotOutput("heatmap")#,
-    #plotOutput("lineplot")
+    # Main panel for displaying outputs ----
+    mainPanel(
+      
+      # Output: Data file ----
+      plotOutput("heatmap")#,
+      #plotOutput("lineplot")
+    )
   )
-  
-)
 )
 
 # Define server logic to read selected file ----
 server <- function(input, output) {
   output$heatmap <- renderPlot({
-    #req(input$reflist)
-    #reflist <- read.table(input$reflist$datapath, header = input$refheader)
     if (is.null(input$expdata) | is.null(input$clusdata)){
       cts <- regencts
       clus.labels <- regenclus.labelsdf
@@ -126,32 +121,37 @@ server <- function(input, output) {
     breakv <- c(min(cts),
                 seq(0, quantile(cts[cts > 0], .99, na.rm = TRUE), length = 50),
                 max(cts))
-
+    
     #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
     
     #ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
-    ph <- aheatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal) , color = colorscale)
+    if (is.null(input$reflist)){
+      ph <- aheatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
+    }else{
+      reflist <- read.table(input$reflist$datapath, header = input$refheader)
+      ph <- aheatmap(cts[intersect(as.character(unlist(reflist)), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)  
+    }
     return(ph)
   })
   
   output$gene_selector = renderUI({
     if (is.null(input$expdata)){
-    data_available = read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_genes.txt")$V1
-      }else{
-    cts <- read.table(input$expdata$datapath,
-                      header = input$expdataheader,
-                      sep = input$expdatasep)
-    data_available = rownames(cts)
-      }
+      data_available = rownames(regencts)
+    }else{
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      data_available = rownames(cts)
+    }
     selectInput(inputId = "gene", #name of input
-                label = "Gene to Plot", #label displayed in ui
+                label = "Single Gene to Plot // Doesn't do anything at the moment", #label displayed in ui
                 choices = sort(unique(data_available)))
-  
+    
   })
   
   output$multigene_selector = renderUI({
     if (is.null(input$expdata)){
-      data_available = read.table("https://raw.githubusercontent.com/diyadas/HBC-regen/master/ref/oeHBCregenWT_genes.txt")$V1
+      data_available = rownames(regencts)
     }else{
       cts <- read.table(input$expdata$datapath,
                         header = input$expdataheader,
@@ -159,7 +159,7 @@ server <- function(input, output) {
       data_available = rownames(cts)
     }
     selectInput(inputId = "multigene", #name of input
-                label = "Genes to Plot", #label displayed in ui
+                label = "Genes to Plot in Heatmap", #label displayed in ui
                 choices = sort(unique(data_available)),
                 multiple = TRUE)
     
