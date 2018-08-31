@@ -45,6 +45,25 @@ ui <- fluidPage(
   sidebarLayout(
     # Sidebar panel for inputs ----
     sidebarPanel(
+      h3("Select genes here"),
+      # Input: Select genes based on data ----
+      htmlOutput("multigene_selector"),
+      tags$hr(),
+      
+      # Input: Select a file ----
+      fileInput("reflist", "- OR - Choose Reference Gene List",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      checkboxInput("refheader", "Header", FALSE),
+      p("A reference gene list will not plot if genes are selected in the box above."),
+      tags$hr(),
+
+      htmlOutput("gene_selector"),
+      
+      h3("Upload custom data"),
+      p("Both a counts matrix and cluster labels are required to plot custom datasets."),
       # Input: Select expression file ----
       fileInput("expdata", "Choose Expression Data File",
                 multiple = TRUE,
@@ -60,6 +79,7 @@ ui <- fluidPage(
       tags$hr(),
       
       # Input: Select a cluster labels file ----
+      p("Cluster labels should be uploaded as a two-column text file with sample names in column 1."),
       fileInput("clusdata", "Choose Cluster Labels File",
                 multiple = TRUE,
                 accept = c("text/csv",
@@ -70,27 +90,12 @@ ui <- fluidPage(
                    choices = c(Comma = ",",
                                Semicolon = ";",
                                Tab = "\t"),
-                   selected = "\t"),
-      tags$hr(),
-      
-      # Input: Select a file ----
-      fileInput("reflist", "Choose Reference Gene List",
-                multiple = TRUE,
-                accept = c("text/csv",
-                           "text/comma-separated-values,text/plain",
-                           ".csv")),
-      checkboxInput("refheader", "Header", FALSE),
-      tags$hr(),
-      
-      # Input: Select genes based on data ----
-      htmlOutput("multigene_selector"),
-      tags$hr(),
-      htmlOutput("gene_selector")
+                   selected = "\t")
     ),
     
     # Main panel for displaying outputs ----
     mainPanel(
-      # Output: Data file ----
+      htmlOutput("selected_data"),
       plotOutput("heatmap")#,
       #plotOutput("lineplot")
     )
@@ -99,6 +104,14 @@ ui <- fluidPage(
 
 # Define server logic to read selected file ----
 server <- function(input, output) {
+  output$selected_data <- renderText({ 
+    if (is.null(input$expdata) | is.null(input$clusdata)){
+      paste("<h4>Plotting Olfactory Epithelium Regeneration Data</h4>")
+    } else {
+      paste("<h4>Plotting Uploaded Data</h4>")
+    }
+  }) 
+  
   output$multigene_selector = renderUI({
     if (is.null(input$expdata)){
       data_available = rownames(regencts)
@@ -139,7 +152,7 @@ server <- function(input, output) {
       }
     })
     
-    validate(need(!is.na(get_reflist()), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\nWill plot olfactory regeneration data when a gene list is provided, unless expression matrix and cluster labels files are uploaded."))
+    validate(need(!is.na(get_reflist()), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\n"))
     if (is.null(input$expdata) | is.null(input$clusdata)){
       cts <- regencts
       clus.labelsdf <- regenclus.labelsdf
