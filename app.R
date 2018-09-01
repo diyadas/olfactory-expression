@@ -33,9 +33,14 @@ colorscale <- c("#000000", "#00003B", "#000077", "#00009E", "#0000C2", "#0826CD"
                 "#135CCD", "#247AB5", "#39848B", "#378B5C", "#168B26", "#149306", 
                 "#5CB21E", "#A0D02E", "#CFE717", "#FFFF00") #clusterExperiment's seqPal5
 
-regencts <- read.table("oeHBCregenWT_countsMatrix.txt")
-regenclus.labelsdf <- read.table("oeHBCregenWT_clusterLabels.txt")
+col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3",
+             "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F",
+             "#FF7F00")
+cole <- c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#084594", "#FEE5D9", "#FCBBA1", "#FC9272", "#FB6A4A", "#DE2D26", "#A50F15")
 
+cts <- read.table("oeHBCregenWT_countsMatrix.txt")
+clus.labelsdf <- read.table("oeHBCregenWT_clusterLabels.txt")
+batchexpt <- read.table("oeHBCregenWT_batchexpt.txt")
 # Define UI for application
 ui <- fluidPage(
   
@@ -90,14 +95,28 @@ ui <- fluidPage(
                    choices = c(Comma = ",",
                                Semicolon = ";",
                                Tab = "\t"),
+                   selected = "\t"),
+      tags$hr(),
+      
+      # Input: Select a batch and experimental condition file ----
+      p("Batch and/or experimental condition should be uploaded in a text file the following headers: sample, batch, expt"),
+      fileInput("batchexptdata", "Choose Batch and/or Experiment File",
+                multiple = TRUE,
+                accept = c("text/csv",
+                           "text/comma-separated-values,text/plain",
+                           ".csv")),
+      radioButtons("batchexptdatasep", "Separator",
+                   choices = c(Comma = ",",
+                               Semicolon = ";",
+                               Tab = "\t"),
                    selected = "\t")
     ),
     
     # Main panel for displaying outputs ----
     mainPanel(
       htmlOutput("selected_data"),
-      plotOutput("heatmap")#,
-      #plotOutput("lineplot")
+      plotOutput("heatmap"),
+      plotOutput("lineplot")
     )
   )
 )
@@ -111,11 +130,10 @@ server <- function(input, output) {
       paste("<h4>Plotting Uploaded Data</h4>")
     }
   }) 
-  
+
   output$multigene_selector = renderUI({
-    if (is.null(input$expdata)){
-      data_available = rownames(regencts)
-    } else {
+    data_available = rownames(cts)
+    if (!is.null(input$expdata)){
       cts <- read.table(input$expdata$datapath,
                         header = input$expdataheader,
                         sep = input$expdatasep)
@@ -128,9 +146,8 @@ server <- function(input, output) {
     
   })
   output$gene_selector = renderUI({
-    if (is.null(input$expdata)){
-      data_available = rownames(regencts)
-    }else{
+    data_available = rownames(cts)
+    if (!is.null(input$expdata)){
       cts <- read.table(input$expdata$datapath,
                         header = input$expdataheader,
                         sep = input$expdatasep)
@@ -154,17 +171,13 @@ server <- function(input, output) {
     
     validate(need(!is.na(get_reflist()), "Can't plot a heatmap without genes! Select a gene from the dropdown OR upload a reference gene list.\n"))
     if (is.null(input$expdata) | is.null(input$clusdata)){
-      cts <- regencts
-      clus.labelsdf <- regenclus.labelsdf
-      col.pal <- c("#1B9E77", "cyan", "#E7298A", "darkolivegreen3", "darkorange3",
-                   "#CCCCCC", "#6A3D9A", "#FCCDE5", "cornflowerblue", "#FFED6F",
-                   "#FF7F00")
-      cole <- c("#C6DBEF", "#9ECAE1", "#6BAED6", "#4292C6", "#2171B5", "#084594", "#FEE5D9", "#FCBBA1", "#FC9272", "#FB6A4A", "#DE2D26", "#A50F15")
+
       colb <- bigPalette
       clus.labels <- clus.labelsdf[,2]
       names(clus.labels) <- clus.labelsdf[,1]
       cluster_ord <- c(9,6,2,5,7,11,12,3,8,4,1)
       clus.labels <- clus.labels[order(match(clus.labels,cluster_ord))]
+      annot <- data.frame(cluster = factor(clus.labels), batchexpt)
     } else {
       cts <- read.table(input$expdata$datapath,
                         header = input$expdataheader,
@@ -176,36 +189,48 @@ server <- function(input, output) {
       clus.labels <- clus.labelsdf[,2]
       names(clus.labels) <- clus.labelsdf[,1]
       clus.labels <- sort(clus.labels)
+      
+      if (!is.null(input$batchexptdata)){
+        batchexpt <- read.table(input$batchexptdata$datapath,
+                                header = TRUE,
+                                sep = input$batchexptdatasep,
+                                row.names = 1)
+        batchexpt <- batchexpt[names(clus.labels),]
+        annot <- data.frame(cluster = factor(clus.labels), batchexpt)
+      } else {
+        annot <- data.frame(cluster = factor(clus.labels))
+      }
     }
     breakv <- c(min(cts),
                 seq(0, quantile(cts[cts > 0], .99, na.rm = TRUE), length = 50),
                 max(cts))
-
-    #plotHeatmap(cts[intersect(reflist, rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels, expt = expt, batch = batch), clusterLegend = list(cluster = bigPalette, expt = cole), annLegend = TRUE)
-    
-    #ph <- plotHeatmap(cts[intersect(as.character(unlist(input$multigene)), rownames(cts)), names(clus.labels)], clusterSamples = FALSE, clusterFeatures = FALSE, breaks = breakv, colData = data.frame(cluster = clus.labels), clusterLegend = list(cluster = col.pal), annLegend = TRUE)
-    
-    
-    ph <- aheatmap(cts[intersect(as.character(unlist(get_reflist())), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = data.frame(cluster = factor(clus.labels)), annColors = list(cluster = col.pal), color = colorscale)
+    ph <- aheatmap(cts[intersect(as.character(unlist(get_reflist())), rownames(cts)), names(clus.labels)], Rowv = NA, Colv = NA, breaks = breakv, annCol = annot, annColors = list(cluster = col.pal, expt = cole, batch = colb), color = colorscale, annLegend = TRUE)
     return(ph)
   })
   
-  # output$lineplot <- renderPlot({
-  #   req(input$expdata)
-  #   req(input$gene)
-  #   req(input$clusdata)
-  #   
-  #   cts <- read.table(input$expdata$datapath,
-  #                     header = input$expdataheader,
-  #                     sep = input$expdatasep)
-  #   clus.labelsdf <- read.table(input$clusdata$datapath,
-  #                               header = input$clusdataheader,
-  #                               sep = input$clusdatasep)
-  #   clus.labels <- clus.labelsdf[,2]
-  #   names(clus.labels) <- clus.labelsdf[,1]
-  #   plot(cts[input$gene,names(clus.labels)],col=bigPalette[clus.labels], pch=19)
-  #     lines(lowess(cts[input$gene,],f=0.15,delta=2),lwd=2)
-  # })
+  output$lineplot <- renderPlot({
+    req(input$gene)
+    if (is.null(input$expdata) | is.null(input$clusdata)){
+      clus.labels <- clus.labelsdf[,2]
+      names(clus.labels) <- clus.labelsdf[,1]
+      cluster_ord <- c(9,6,2,5,7,11,12,3,8,4,1)
+      clus.labels <- clus.labels[order(match(clus.labels,cluster_ord))]
+    } else {
+      cts <- read.table(input$expdata$datapath,
+                        header = input$expdataheader,
+                        sep = input$expdatasep)
+      clus.labelsdf <- read.table(input$clusdata$datapath,
+                                  header = input$clusdataheader,
+                                  sep = input$clusdatasep)
+      clus.labels <- clus.labelsdf[,2]
+      names(clus.labels) <- clus.labelsdf[,1]
+      clus.labels <- sort(clus.labels)
+    }
+    par(mfrow=c(3,1), mar=c(4,4,2,1))
+    plot(t(cts[input$gene, names(clus.labels)]), col = col.pal[clus.labels], pch = 19, xlab = "By Cluster", ylab = input$gene)
+    plot(t(cts[input$gene, names(clus.labels)]), col = cole[batchexpt$expt], pch = 19, xlab = "By Experimental Condition", ylab = input$gene)
+    plot(t(cts[input$gene, names(clus.labels)]), col = bigPalette[batchexpt$batch], pch = 19, xlab = "By Batch", ylab = input$gene)
+  })
 }
 
 
