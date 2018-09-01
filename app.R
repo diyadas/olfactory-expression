@@ -225,6 +225,17 @@ server <- function(input, output) {
       clus.labels <- clus.labelsdf[,2]
       names(clus.labels) <- clus.labelsdf[,1]
       clus.labels <- sort(clus.labels)
+      
+      if (!is.null(input$batchexptdata)){
+        batchexpt <- read.table(input$batchexptdata$datapath,
+                                header = TRUE,
+                                sep = input$batchexptdatasep,
+                                row.names = 1)
+        batchexpt <- batchexpt[names(clus.labels),]
+      } else{
+        batchexpt <- NULL
+      }
+      
     }
     par(mfrow=c(3,1), mar=c(4,4,2,1))
     plot(t(cts[input$gene, names(clus.labels)]), col = col.pal[clus.labels], pch = 19, xlab = "By Cluster", ylab = input$gene)
