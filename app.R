@@ -1,7 +1,7 @@
 # Title: Shiny App for Olfactory Expression Data
 # Author: Diya Das
 # Date: 2018-08-31
-# Last revised: Fri Aug 31 12:21:31 2018
+# Last revised: Thu Sep 13 10:29:18 2018
 
 # This script needs XCode Developer Tools on MacOS: 
 ### To install them, open Terminal and run "xcode-select --install"
@@ -45,7 +45,7 @@ cts <- read.table("oeHBCregenWT_countsMatrix.txt")
 clus.labelsdf <- read.table("oeHBCregenWT_clusterLabels.txt", sep = "\t")
 clus.labels <- clus.labelsdf[, 2]
 names(clus.labels) <- clus.labelsdf[, 1]
-cluster_ord <- c("activated HBC 1", "activated HBC 2", "GBC", "INP1/2", "INP3",
+cluster_ord <- c("activated HBC 1", "activated HBC 2", "GBC/MV", "INP1/2", "INP3",
                  "iOSN", "mOSN", "SUS", "renewing HBC 1",  "renewing HBC 2",
                  "resting HBC")
 clus.labels <- factor(clus.labels, levels = cluster_ord)
