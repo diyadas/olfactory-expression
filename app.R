@@ -133,6 +133,7 @@ ui <- fluidPage(
     # Main panel for displaying outputs ----
     mainPanel(
       htmlOutput("selected_data"),
+      downloadButton("export_heatmap", label = "Download Heatmap as PDF"),
       plotOutput("heatmap", height = "600px"),
       downloadButton("export_lineplot", label = "Download Line Plots as PDF"),
       plotOutput("lineplot")
@@ -175,7 +176,8 @@ server <- function(input, output) {
                 label = "Single Gene to Plot",
                 choices = sort(unique(data_available)))
   })
-  output$heatmap <- renderPlot({
+  
+  heatmap_plot <- function(){
     order_genes <- reactive({
       if (!input$reforder) {
         return(NA)
@@ -231,6 +233,16 @@ server <- function(input, output) {
                                     batch = colb),
                    color = colscale, annLegend = TRUE)
     return(ph)
+  }
+  
+  output$heatmap <- renderPlot({
+    heatmap_plot()
+  })
+  
+  output$export_heatmap <- downloadHandler(paste0("olfactory-expression_heatmap_", format(Sys.time(), "%Y-%m-%d_%H%M%OS3"),".pdf"), function(filename) {
+      pdf(file = filename, width = 8.5, height = 11)
+      heatmap_plot()
+      dev.off()
   })
   
   line_plot <- function(){
