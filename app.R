@@ -1,7 +1,7 @@
 # Title: Shiny App for Olfactory Expression Data
 # Author: Diya Das
 # Date: 2018-08-31
-# Last revised: Thu Sep 13 10:29:18 2018
+# Last revised: Thu Sep 27 17:21:02 2018
 
 # This script needs XCode Developer Tools on MacOS: 
 ### To install them, open Terminal and run "xcode-select --install"
@@ -82,6 +82,7 @@ ui <- fluidPage(
       checkboxInput("refheader", "Header", FALSE),
       p("A reference gene list will not plot if genes are selected in the box
         above."),
+      checkboxInput("reforder", "Order Genes", FALSE),
       tags$hr(),
       
       htmlOutput("gene_selector"),
@@ -174,6 +175,13 @@ server <- function(input, output) {
                 choices = sort(unique(data_available)))
   })
   output$heatmap <- renderPlot({
+    order_genes <- reactive({
+      if (!input$reforder) {
+        return(NA)
+      } else{
+        return(TRUE)
+      }
+    })
     get_reflist <- reactive({
       if (!is.null(input$multigene)) {
         return(input$multigene)
@@ -217,7 +225,7 @@ server <- function(input, output) {
                 max(cts))
     ph <- aheatmap(cts[intersect(as.character(unlist(get_reflist())),
                                  rownames(cts)), names(clus.labels)],
-                   Rowv = NA, Colv = NA, breaks = breakv, annCol = annot,
+                   Rowv = order_genes(), Colv = NA, breaks = breakv, annCol = annot,
                    annColors = list(cluster = col.pal, expt = cole,
                                     batch = colb),
                    color = colscale, annLegend = TRUE)
