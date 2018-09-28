@@ -134,6 +134,7 @@ ui <- fluidPage(
     mainPanel(
       htmlOutput("selected_data"),
       plotOutput("heatmap", height = "600px"),
+      downloadButton("export_lineplot", label = "Download Line Plots as PDF"),
       plotOutput("lineplot")
     )
   )
@@ -232,7 +233,7 @@ server <- function(input, output) {
     return(ph)
   })
   
-  output$lineplot <- renderPlot({
+  line_plot <- function(){
     req(input$gene)
     if (!is.null(input$expdata) & !is.null(input$clusdata)){
       cts <- read.table(input$expdata$datapath,
@@ -260,6 +261,16 @@ server <- function(input, output) {
          pch = 19, xlab = "By Experimental Condition", ylab = input$gene)
     plot(t(cts[input$gene, names(clus.labels)]), col = colb[batchexpt$batch],
          pch = 19, xlab = "By Batch", ylab = input$gene)
+  }
+  
+  output$lineplot <- renderPlot({
+    line_plot()
+  })
+  
+  output$export_lineplot <- downloadHandler(paste0("olfactory-expression_lineplot_", format(Sys.time(), "%Y-%m-%d_%H%M%OS3"),".pdf"), function(filename) {
+    pdf(filename, width = 8.5, height = 11)
+    line_plot()
+    dev.off()
   })
 }
 
