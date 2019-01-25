@@ -223,9 +223,9 @@ server <- function(input, output) {
         annot <- data.frame(cluster = clus.labels)
       }
     }
-    breakv <- c(min(cts),
+    breakv <- unique(c(min(cts),
                 seq(0, quantile(cts[cts > 0], .99, na.rm = TRUE), length = 50),
-                max(cts))
+                max(cts)))
     ph <- aheatmap(cts[intersect(as.character(unlist(get_reflist())),
                                  rownames(cts)), names(clus.labels)],
                    Rowv = order_genes(), Colv = NA, breaks = breakv, annCol = annot,
@@ -255,7 +255,7 @@ server <- function(input, output) {
                                   header = input$clusdataheader,
                                   sep = input$clusdatasep)
       clus.labels <- clus.labelsdf[, 2]
-      names(clus.labels) <- clus.labelsdf[, 1]
+      names(clus.labels) <- make.names(clus.labelsdf[, 1])
       clus.labels <- sort(clus.labels)
       col.pal <- cole <- colb
       if (!is.null(input$batchexptdata)){
